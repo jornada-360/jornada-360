@@ -24023,14 +24023,14 @@
     for (let fi = 0; fi < files2.length; fi++) {
       const file = files2[fi], wb = new import_exceljs.default.Workbook();
       await wb.xlsx.load(file.data);
+      if (!wb.worksheets.length) throw new Error(`${file.name} no contiene hojas de trabajo.`);
+      if (wb.worksheets.length > 20) throw new Error(`${file.name} contiene demasiadas hojas para un reporte mensual.`);
       const employees = /* @__PURE__ */ new Map(), sheets = [];
       let inferredStore = "";
       for (const ws of wb.worksheets) {
+        if (ws.rowCount > 2e3) throw new Error(`${file.name}, hoja ${ws.name}: contiene m\xE1s de 2.000 filas y no corresponde al formato esperado.`);
         const dates = Array.from({ length: 7 }, (_, i) => iso(ws.getRow(10).getCell(i + 6).value));
-        if (dates.some((x) => !x)) {
-          results.push({ ruleCode: "MONTHLY_INVALID_DATES", severity: "ERROR", blocking: true, message: `La hoja ${ws.name} no contiene siete fechas v\xE1lidas.`, metadata: { file: file.name, sheet: ws.name } });
-          continue;
-        }
+        if (dates.some((x) => !x)) throw new Error(`${file.name}, hoja ${ws.name}: no se encontraron las siete fechas esperadas en la fila 10.`);
         inferredStore = text(ws.getCell("A5").value).replace(/^Local:\s*/i, "") || inferredStore;
         const plans = [], rows = [];
         for (let r = 11; r <= ws.rowCount; r++) {
@@ -24065,6 +24065,7 @@
           }
           results.push({ ruleCode: "MAX_WEEKLY_NIGHT_SELLER_HOURS", severity: "ERROR", blocking: true, date: causing.date, message: `${row.name}: jornada nocturna semanal superior al m\xE1ximo de 40:00. El turno del ${causing.date} hace superar el l\xEDmite.`, metadata: { file: file.name, sheet: ws.name, rowId: row.key, rut: row.code } });
         }
+        if (!rows.length) throw new Error(`${file.name}, hoja ${ws.name}: no se encontraron trabajadores desde la fila 11.`);
         sheets.push({ sheet: ws.name, weekStart: dates[0], weekEnd: dates[6], employees: plans.length, dates, rows });
       }
       for (const e of employees.values()) {
@@ -24135,6 +24136,12 @@ Tiempo de colaci\xF3n: ${Math.floor(m.breakMinutes / 60)}h ${m.breakMinutes % 60
     try {
       if (url.endsWith("/monthly-validations/upload")) {
         const selected = opt.body.getAll("files");
+        if (!selected.length) throw new Error("Debes seleccionar al menos un archivo Excel.");
+        for (const file of selected) {
+          if (!/\.xlsx$/i.test(file.name)) throw new Error(`${file.name}: formato no permitido. Selecciona un archivo .xlsx.`);
+          if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: supera el m\xE1ximo permitido de 10 MB.`);
+          if (file.size < 100) throw new Error(`${file.name}: el archivo est\xE1 vac\xEDo o da\xF1ado.`);
+        }
         files = await Promise.all(selected.map(async (file) => ({ name: file.name, data: await file.arrayBuffer() })));
         corrections = [];
         result2 = await validateBrowserFiles(files, corrections);
@@ -24158,7 +24165,10 @@ Tiempo de colaci\xF3n: ${Math.floor(m.breakMinutes / 60)}h ${m.breakMinutes % 60
       }
       return response({ message: "Operaci\xF3n no disponible en la versi\xF3n est\xE1tica." }, false);
     } catch (error) {
-      return response({ message: error?.message || "No fue posible procesar el archivo." }, false);
+      files = [];
+      corrections = [];
+      result2 = null;
+      return response({ message: `Archivo no reconocido: ${error?.message || "no fue posible procesar su estructura."}` }, false);
     }
   }
   async function download(fileIndex) {
