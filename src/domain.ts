@@ -2,7 +2,7 @@ export const DAYS = ['LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO','D
 export const COLUMNS = ['NOMBRE Y APELLIDOS COLABORADOR','RUT',...DAYS] as const;
 export const LEGACY_COLUMNS = ['LOCAL',...COLUMNS] as const;
 export type DayName = typeof DAYS[number];
-export type DayType = 'WORK'|'FREE'|'VACATION'|'FLEX'|'ABSENCE'|'UNWAIVABLE_HOLIDAY'|'ADDITIONAL_SUNDAY'|'EMPTY'|'INVALID';
+export type DayType = 'WORK'|'FREE'|'VACATION'|'FLEX'|'ABSENCE'|'UNWAIVABLE_HOLIDAY'|'ADDITIONAL_SUNDAY'|'BIRTHDAY'|'EMPTY'|'INVALID';
 export type Severity = 'WARNING'|'ERROR';
 export interface Interval { type:'WORK'|'BREAK'; start:string; end:string; position:number }
 export interface Issue { code:string; message:string; severity:Severity; row?:number; column?:string; originalValue?:string }
@@ -33,6 +33,7 @@ export function parseDay(raw:unknown):ParsedDay {
   if(/^ausencia$/i.test(value)) return {originalValue,dayType:'ABSENCE',intervals:[],issues};
   if(/^feriado\s+irrenunciable$/i.test(value)) return {originalValue,dayType:'UNWAIVABLE_HOLIDAY',intervals:[],issues};
   if(/^da$/i.test(value)) return {originalValue,dayType:'ADDITIONAL_SUNDAY',intervals:[],issues};
+  if(/^d\.\s*cump\.?$/i.test(value)) return {originalValue,dayType:'BIRTHDAY',intervals:[],issues};
   const lines=value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean); const intervals:Interval[]=[]; let invalid=false;
   for(const line of lines){ const b=line.match(BREAK_RE); const w=line.match(WORK_RE); if(b) intervals.push({type:'BREAK',start:b[1],end:b[2],position:intervals.filter(x=>x.type==='BREAK').length+1}); else if(w) intervals.push({type:'WORK',start:w[1],end:w[2],position:intervals.filter(x=>x.type==='WORK').length+1}); else invalid=true }
   const work=intervals.filter(x=>x.type==='WORK'), breaks=intervals.filter(x=>x.type==='BREAK');
@@ -44,6 +45,6 @@ export function parseDay(raw:unknown):ParsedDay {
   return {originalValue,dayType:issues.length?'INVALID':'WORK',intervals,issues};
 }
 export function formatDay(type:DayType, intervals:Interval[]):string {
-  if(type==='FREE') return 'Libre'; if(type==='VACATION') return 'Vac'; if(type==='FLEX') return 'Día Flex'; if(type==='ABSENCE')return'Ausencia';if(type==='UNWAIVABLE_HOLIDAY')return'Feriado irrenunciable';if(type==='ADDITIONAL_SUNDAY')return'DA';if(type==='EMPTY') return '';
+  if(type==='FREE') return 'Libre'; if(type==='VACATION') return 'Vac'; if(type==='FLEX') return 'Día Flex'; if(type==='ABSENCE')return'Ausencia';if(type==='UNWAIVABLE_HOLIDAY')return'Feriado irrenunciable';if(type==='ADDITIONAL_SUNDAY')return'DA';if(type==='BIRTHDAY')return'D. Cump';if(type==='EMPTY') return '';
   return [...intervals.filter(x=>x.type==='WORK'),...intervals.filter(x=>x.type==='BREAK')].map(x=>`${x.type==='BREAK'?'Col ':''}${x.start} a ${x.end}`).join('\n');
 }

@@ -23733,6 +23733,7 @@
     if (/^ausencia$/i.test(value)) return { originalValue, dayType: "ABSENCE", intervals: [], issues };
     if (/^feriado\s+irrenunciable$/i.test(value)) return { originalValue, dayType: "UNWAIVABLE_HOLIDAY", intervals: [], issues };
     if (/^da$/i.test(value)) return { originalValue, dayType: "ADDITIONAL_SUNDAY", intervals: [], issues };
+    if (/^d\.\s*cump\.?$/i.test(value)) return { originalValue, dayType: "BIRTHDAY", intervals: [], issues };
     const lines = value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
     const intervals = [];
     let invalid = false;
@@ -23763,6 +23764,7 @@
     if (type === "ABSENCE") return "Ausencia";
     if (type === "UNWAIVABLE_HOLIDAY") return "Feriado irrenunciable";
     if (type === "ADDITIONAL_SUNDAY") return "DA";
+    if (type === "BIRTHDAY") return "D. Cump";
     if (type === "EMPTY") return "";
     return [...intervals.filter((x) => x.type === "WORK"), ...intervals.filter((x) => x.type === "BREAK")].map((x) => `${x.type === "BREAK" ? "Col " : ""}${x.start} a ${x.end}`).join("\n");
   }
