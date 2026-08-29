@@ -1,0 +1,8 @@
+node_modules/
+data/
+uploads/
+exports/
+coverage/
+*.log
+*.zip
+Jornada360-GitHub-Pages-*/

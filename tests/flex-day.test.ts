@@ -1,0 +1,2 @@
+import{describe,it,expect}from'vitest';import{formatDay,parseDay}from'../src/domain.js';import{dayMetrics}from'../src/legal/types.js';
+describe('Día Flex',()=>{it.each(['Día Flex','Dia Flex','DÍA FLEX'])('reconoce %s como informativo sin jornada',value=>{const parsed=parseDay(value);expect(parsed).toMatchObject({dayType:'FLEX',issues:[],intervals:[]});expect(dayMetrics({id:'d',date:'2026-10-01',dayName:'LUNES',...parsed}).workedMinutes).toBe(0)});it('normaliza al exportar',()=>expect(formatDay('FLEX',[])).toBe('Día Flex'))});
