@@ -13,7 +13,8 @@ const TIME = '(?:[01]\\d|2[0-3]):[0-5]\\d';
 const WORK_RE = new RegExp(`^(${TIME})\\s+a\\s+(${TIME})$`, 'i');
 const BREAK_RE = new RegExp(`^Col\\s+(${TIME})\\s+a\\s+(${TIME})$`, 'i');
 const mins = (t:string) => { const [h,m]=t.split(':').map(Number); return h*60+m };
-const endMins=(start:string,end:string)=>end==='00:00'&&start!=='00:00'?1440:mins(end);
+const crossesMidnight=(start:string,end:string)=>(mins(end)===0&&mins(start)>0)||(mins(start)>=18*60&&mins(end)<=12*60);
+const endMins=(start:string,end:string)=>mins(end)+(crossesMidnight(start,end)?1440:0);
 
 export function normalizeRut(value:string):string { return value.toUpperCase().replace(/[^0-9K]/g,'') }
 export function validRut(value:string):boolean {
@@ -39,7 +40,7 @@ export function parseDay(raw:unknown):ParsedDay {
   if(invalid||work.length===0||work.length>2||breaks.length>1) issues.push({code:'INVALID_WORK_INTERVAL',message:'El horario informado no tiene un formato válido.',severity:'ERROR',originalValue});
   for(const x of intervals) if(mins(x.start)>=endMins(x.start,x.end)) issues.push({code:'INVALID_TIME_ORDER',message:'La hora de inicio debe ser anterior a la hora de fin.',severity:'ERROR',originalValue});
   if(work.length===2 && mins(work[0].start)<endMins(work[1].start,work[1].end)&&mins(work[1].start)<endMins(work[0].start,work[0].end)) issues.push({code:'OVERLAPPING_WORK_INTERVALS',message:'Los turnos se superponen.',severity:'ERROR',originalValue});
-  for(const b of breaks) if(!work.some(w=>{const ws=mins(w.start),we=endMins(w.start,w.end),bs=mins(b.start)<ws?mins(b.start)+1440:mins(b.start),be=endMins(b.start,b.end)<bs?endMins(b.start,b.end)+1440:endMins(b.start,b.end);return bs>=ws&&be<=we})) issues.push({code:'BREAK_OUTSIDE_WORK',message:'La colación está fuera del horario laboral.',severity:'ERROR',originalValue});
+  for(const b of breaks) if(!work.some(w=>{const ws=mins(w.start),we=endMins(w.start,w.end),bs=mins(b.start)<ws?mins(b.start)+1440:mins(b.start);let be=endMins(b.start,b.end);if(bs>=1440&&be<1440)be+=1440;return bs>=ws&&be<=we})) issues.push({code:'BREAK_OUTSIDE_WORK',message:'La colación está fuera del horario laboral.',severity:'ERROR',originalValue});
   return {originalValue,dayType:issues.length?'INVALID':'WORK',intervals,issues};
 }
 export function formatDay(type:DayType, intervals:Interval[]):string {

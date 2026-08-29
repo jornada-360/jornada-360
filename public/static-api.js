@@ -23717,7 +23717,8 @@
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
-  var endMins = (start, end) => end === "00:00" && start !== "00:00" ? 1440 : mins(end);
+  var crossesMidnight = (start, end) => mins(end) === 0 && mins(start) > 0 || mins(start) >= 18 * 60 && mins(end) <= 12 * 60;
+  var endMins = (start, end) => mins(end) + (crossesMidnight(start, end) ? 1440 : 0);
   function parseDay(raw) {
     const originalValue = raw == null ? "" : String(raw);
     const value = originalValue.trim();
@@ -23748,7 +23749,9 @@
     for (const x of intervals) if (mins(x.start) >= endMins(x.start, x.end)) issues.push({ code: "INVALID_TIME_ORDER", message: "La hora de inicio debe ser anterior a la hora de fin.", severity: "ERROR", originalValue });
     if (work.length === 2 && mins(work[0].start) < endMins(work[1].start, work[1].end) && mins(work[1].start) < endMins(work[0].start, work[0].end)) issues.push({ code: "OVERLAPPING_WORK_INTERVALS", message: "Los turnos se superponen.", severity: "ERROR", originalValue });
     for (const b of breaks) if (!work.some((w) => {
-      const ws = mins(w.start), we = endMins(w.start, w.end), bs = mins(b.start) < ws ? mins(b.start) + 1440 : mins(b.start), be = endMins(b.start, b.end) < bs ? endMins(b.start, b.end) + 1440 : endMins(b.start, b.end);
+      const ws = mins(w.start), we = endMins(w.start, w.end), bs = mins(b.start) < ws ? mins(b.start) + 1440 : mins(b.start);
+      let be = endMins(b.start, b.end);
+      if (bs >= 1440 && be < 1440) be += 1440;
       return bs >= ws && be <= we;
     })) issues.push({ code: "BREAK_OUTSIDE_WORK", message: "La colaci\xF3n est\xE1 fuera del horario laboral.", severity: "ERROR", originalValue });
     return { originalValue, dayType: issues.length ? "INVALID" : "WORK", intervals, issues };
@@ -23797,9 +23800,10 @@
     return h * 60 + m;
   };
   var hhmm = (n) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+  var crossesMidnight2 = (start, end) => minutes(end) === 0 && minutes(start) > 0 || minutes(start) >= 18 * 60 && minutes(end) <= 12 * 60;
   var intervalMinutes = (start, end) => {
-    const a = minutes(start), b = minutes(end);
-    return (end === "00:00" && start !== "00:00" ? 1440 : b) - a;
+    const a = minutes(start), b = minutes(end) + (crossesMidnight2(start, end) ? 1440 : 0);
+    return Math.max(0, b - a);
   };
   function dayMetrics(day) {
     const work = day.intervals.filter((x) => x.type === "WORK"), breaks = day.intervals.filter((x) => x.type === "BREAK");
@@ -23866,7 +23870,9 @@
         }
         const latest = rules.get("MAX_WORK_BEFORE_BREAK_MINUTES");
         if (latest && m.work.length && m.breaks.length) {
-          const elapsed = minutes(m.breaks[0].start) - minutes(m.work[0].start), maximum = Number(latest.parameter_value);
+          let elapsed = minutes(m.breaks[0].start) - minutes(m.work[0].start);
+          if (elapsed < 0 && crossesMidnight2(m.work[0].start, m.work[0].end)) elapsed += 1440;
+          const maximum = Number(latest.parameter_value);
           if (elapsed > maximum) out.push(result(latest, e, `La colaci\xF3n del ${d.date} comienza despu\xE9s del m\xE1ximo permitido desde el inicio de jornada (${hhmm(elapsed)} / ${hhmm(maximum)}).`, { date: d.date, actualValue: String(elapsed), expectedValue: latest.parameter_value }));
         }
       }

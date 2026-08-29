@@ -12,5 +12,6 @@ export interface LegalContext{weekStart:string;weekEnd:string;employees:Employee
 export interface LegalRuleEvaluator{codes:string[];evaluate(context:LegalContext,employee:EmployeePlanning|undefined,rules:Map<string,LegalRule>):LegalResult[]}
 export const minutes=(t:string)=>{const[h,m]=t.split(':').map(Number);return h*60+m};
 export const hhmm=(n:number)=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
-export const intervalMinutes=(start:string,end:string)=>{const a=minutes(start),b=minutes(end);return(end==='00:00'&&start!=='00:00'?1440:b)-a};
+export const crossesMidnight=(start:string,end:string)=>(minutes(end)===0&&minutes(start)>0)||(minutes(start)>=18*60&&minutes(end)<=12*60);
+export const intervalMinutes=(start:string,end:string)=>{const a=minutes(start),b=minutes(end)+(crossesMidnight(start,end)?1440:0);return Math.max(0,b-a)};
 export function dayMetrics(day:LegalDay){const work=day.intervals.filter(x=>x.type==='WORK'),breaks=day.intervals.filter(x=>x.type==='BREAK');const presence=work.reduce((n,x)=>n+intervalMinutes(x.start,x.end),0),breakMinutes=breaks.reduce((n,x)=>n+intervalMinutes(x.start,x.end),0);return{presenceMinutes:presence,breakMinutes,workedMinutes:Math.max(0,presence-breakMinutes),firstStart:work.map(x=>x.start).sort()[0],lastEnd:work.map(x=>x.end).sort().at(-1),work,breaks}}
